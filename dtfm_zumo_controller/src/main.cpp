@@ -1,60 +1,62 @@
+// Description: Test program to analyze the output of the DTFM decoder MT8870D module
 #include <Arduino.h>
+#include <Wire.h>
+#include <Zumo32U4.h>
 
-void setup() {
-  Serial.begin(9600);
-  pinMode(3, INPUT);
-  pinMode(4, INPUT);
-  pinMode(5, INPUT);
-  pinMode(6, INPUT);
-  pinMode(7, INPUT);
+Zumo32U4Motors motors;
+
+// ---- Pin Definitions ----
+#define Q1 13
+#define Q2 14
+#define Q3 17
+#define Q4 1
+#define STD 0 // delayed steering: high when a tone has been registered, low otherwise
+#define MAXSPEED 300
+
+void setup()
+{
+  pinMode(Q1, INPUT);
+  pinMode(Q2, INPUT);
+  pinMode(Q3, INPUT);
+  pinMode(Q4, INPUT);
+  pinMode(STD, INPUT);
 }
 
-void loop() {
+void loop()
+{
   uint8_t number;
-  bool signal ;  
-  signal = digitalRead(7);
-  if(signal == HIGH)  /* If new pin pressed */
-   {
-    delay(250);
-    number = ( 0x00 | (digitalRead(3)<<0) | (digitalRead(4)<<1) | (digitalRead(5)<<2) | (digitalRead(4)<<3) );
-      switch (number)
-      {
-        case 0x01:
-        Serial.println("Pin Pressed : 1");
-        break;
-        case 0x02:
-        Serial.println("Pin Pressed : 2");
-        break;
-        case 0x03:
-        Serial.println("Pin Pressed : 3");
-        break;
-        case 0x04:
-        Serial.println("Pin Pressed : 4");
-        break;
-        case 0x05:
-        Serial.println("Pin Pressed : 5");
-        break;
-        case 0x06:
-        Serial.println("Pin Pressed : 6");
-        break;
-        case 7:
-        Serial.println("Pin Pressed : 7");
-        break;
-        case 0x08:
-        Serial.println("Pin Pressed : 8");
-        break;
-        case 0x09:
-        Serial.println("Pin Pressed : 9");
-        break;
-        case 0x0A:
-        Serial.println("Pin Pressed : 0");
-        break;
-        case 0x0B:
-        Serial.println("Pin Pressed : *");
-        break;
-        case 0x0C:
-        Serial.println("Pin Pressed : #");
-        break;    
-      }
+  bool signal;
+  signal = digitalRead(STD);  
+  if (!signal)
+  {
+    number = (0x00 | (digitalRead(Q1) << 0) | (digitalRead(Q2) << 1) | (digitalRead(Q3) << 2) | (digitalRead(Q4) << 3));
+    switch (number)
+    {
+    case 2: // go forward
+      motors.setLeftSpeed(MAXSPEED);
+      motors.setRightSpeed(MAXSPEED);
+      break;
+    case 5: // stop motors
+      motors.setLeftSpeed(0);
+      motors.setRightSpeed(0);
+      break;
+    case 8: // go backward
+      motors.setLeftSpeed(-MAXSPEED);
+      motors.setRightSpeed(-MAXSPEED);
+      break;
+    case 4: // go left
+      motors.setLeftSpeed(-MAXSPEED);
+      motors.setRightSpeed(MAXSPEED);
+      break;
+    case 6: // go left
+      motors.setLeftSpeed(MAXSPEED);
+      motors.setRightSpeed(-MAXSPEED);
+      break;
+    }
+  }
+  else
+  {
+    motors.setLeftSpeed(0);
+    motors.setRightSpeed(0);
   }
 }
