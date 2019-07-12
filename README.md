@@ -1,2 +1,2 @@
-# Autonomous-Audio-Collaborative-Robots
-This project is a for an Autonomous Mobile Robotics class centered around developing collaborative robots using the Pololu Zumo 32u4 platform.  The robots can communicate with audible sound.  Data is transferred using the dual tone multi frequency (DTMF) protocol similar to dial tones used on classical phone systems.
+# Collaborative-Robots
+This project is a for an Autonomous Mobile Robotics class centered around developing collaborative robots using the Pololu Zumo 32u4 platform.  The robots are tasked with simulataneously solving a maze.  The first one to finish will alert the others how to solve the maze from the starting location via a wireless communication link.  The platform used is the Zumo 32u4 outfitted with an HC-12 module.
