@@ -47,13 +47,13 @@ void loop() {
   digitalWrite(frontTrigPin,HIGH);
   delayMicroseconds(10);
   digitalWrite(frontTrigPin,LOW);
-  frontDuration = pulseIn(frontEchoPin,HIGH);
+  frontDuration = pulseIn(frontEchoPin,HIGH,0.5);
 
   // Read right sensor
   digitalWrite(rightTrigPin,HIGH);
   delayMicroseconds(10);
   digitalWrite(rightTrigPin,LOW);
-  rightDuration = pulseIn(rightEchoPin,HIGH);
+  rightDuration = pulseIn(rightEchoPin,HIGH, 0.5);
   
   // Calculate distances
   leftDistance = leftDuration*0.034/2;
