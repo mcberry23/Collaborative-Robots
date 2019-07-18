@@ -5,31 +5,37 @@ Zumo32U4Encoders encoders;
 Zumo32U4Motors motors;
 
 #define pi 3.14159265359
-char report[80];
 
+// ---- Pin Setup ----
 const int leftTrigPin = 5;
 const int leftEchoPin = 11;
-long leftDuration;
-int leftDistance;
-
 const int frontTrigPin = 2;
 const int frontEchoPin = 0;
-long frontDuration;
-int frontDistance;
-
 const int rightTrigPin = 3;
 const int rightEchoPin = 4;
-long rightDuration;
-int rightDistance;
 
-
-
+// ---- Performance Constants ----
 const int samplingDelay = 0; // in ms
-const double k = 3.5;
-const int distance = 380; // total distance to travel in mm
+const long pulseTimeout = 10000; // in us
+const double kp = 1;
+const double ki = 0;
+const double kd = 6;
 const int rWheel = 19; // wheel radius in mm
 const int ticksPerRev = 610;
 const int initialSpeed = 200;
+
+// ---- Variables ----
+long leftDuration;
+long frontDuration;
+long rightDuration;
+int leftDistance;
+int frontDistance;
+int rightDistance;
+int error = 0;
+int lastError = 0;
+int integral = 0;
+int derivative = 0;
+char report[80];
 int speedLeft = initialSpeed;
 int speedRight = initialSpeed;
 
@@ -47,24 +53,46 @@ void setup()
   
   pinMode(rightTrigPin,OUTPUT);
   pinMode(rightEchoPin,INPUT);
+
+  while(abs(error) < 7){
+    readUltrasonic();
+    driveStraight();  
+    snprintf_P(report, sizeof(report),
+          PSTR("Distances: L%6d F%6d R%6d | Speeds: L%6d R%6d | Error: %6d"),
+          leftDistance,frontDistance,rightDistance,speedLeft,speedRight,error);
+    Serial.println(report);
+    delay(samplingDelay);
+  }
+  stopMotors();
 }
 
 void loop()
 {
-  readUltrasonic();
-  speedLeft = round(initialSpeed - (k * (leftDistance - rightDistance)));
-  speedRight = round(initialSpeed - (k * (- leftDistance + rightDistance)));
+   
+}
+
+void stopMotors(){
+  motors.setSpeeds(0, 0);
+}
+
+void driveStraight(){
+  error = leftDistance - rightDistance;
+  integral = integral + error;
+  derivative = error - lastError;
+  lastError = error;
+  speedLeft = round(initialSpeed - (kp * error) - (ki * integral) - (kd * derivative));
+  speedRight = round(initialSpeed + (kp * error) + (ki * integral) + (kd * derivative));
   speedLeft = max(0,speedLeft);
   speedLeft = min(400,speedLeft);
   speedRight = max(0,speedRight);
   speedRight = min(400,speedRight);
-  motors.setSpeeds(speedLeft, speedRight);    
-  snprintf_P(report, sizeof(report),
-        PSTR("Distances: L%6d F%6d R%6d | Speeds: L%6d R%6d"),
-        leftDistance,frontDistance,rightDistance,speedLeft,speedRight);
-  
-  Serial.println(report);
-    delay(samplingDelay); 
+  motors.setSpeeds(speedLeft, speedRight);  
+}
+
+void clearPID(){
+  lastError = 0;
+  derivative = 0;
+  integral = 0;
 }
 
 void readUltrasonic(){
@@ -78,19 +106,19 @@ void readUltrasonic(){
   digitalWrite(leftTrigPin,HIGH);
   delayMicroseconds(10);
   digitalWrite(leftTrigPin,LOW);
-  leftDuration = pulseIn(leftEchoPin,HIGH);
+  leftDuration = pulseIn(leftEchoPin,HIGH,pulseTimeout);
 
   // Read front sensor
   digitalWrite(frontTrigPin,HIGH);
   delayMicroseconds(10);
   digitalWrite(frontTrigPin,LOW);
-  frontDuration = pulseIn(frontEchoPin,HIGH);
+  frontDuration = pulseIn(frontEchoPin,HIGH,pulseTimeout);
 
   // Read right sensor
   digitalWrite(rightTrigPin,HIGH);
   delayMicroseconds(10);
   digitalWrite(rightTrigPin,LOW);
-  rightDuration = pulseIn(rightEchoPin,HIGH);
+  rightDuration = pulseIn(rightEchoPin,HIGH,pulseTimeout);
   
   // Calculate distances
   leftDistance = leftDuration*0.034/2;
