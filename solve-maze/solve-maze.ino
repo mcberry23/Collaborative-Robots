@@ -3,6 +3,7 @@
 
 Zumo32U4Encoders encoders;
 Zumo32U4Motors motors;
+Zumo32U4ButtonC buttonC;
 
 #define pi 3.14159265359
 
@@ -24,6 +25,12 @@ const double rWheel = 19/25.4; // wheel radius in mm
 const int ticksPerRev = 610;
 const int initialSpeed = 200;
 
+// ---- Imported Constants for Turning ----
+const int samplingDelayE = 10; // in ms
+const double kpe = 0.8;  // proportional gain for encoders
+const int turn180 = 820; // total distance to travel in counts
+const int turn90 = 395;// total distance to travel in counts
+
 // ---- Variables ----
 long leftDuration;
 long frontDuration;
@@ -39,8 +46,7 @@ char report[80];
 int speedLeft = initialSpeed;
 int speedRight = initialSpeed;
 
-void setup()
-{
+void setup(){
   Serial.begin(9600);
   Serial.println("Starting...");
   stopMotors();
@@ -56,28 +62,85 @@ void setup()
    
 }
 
-void loop()
-{
+void loop(){
   driveStraightUntilOpening();
   delay(200);
-  if (rightDistance > 9)
+  if (rightDistance > 9){
     turnRight();
-  else
+  }else{
     turnLeft();
+  }
   delay(200);
-  driveInches(6); 
+  driveInches(6.5);
 }
 
 void turnRight(){
-  motors.setSpeeds(200, -200); 
-  delay(310);
-  stopMotors();
+  int x = 0;
+  int speedLeft = initialSpeed;
+  int speedRight = - initialSpeed;
+  int leftCal = encoders.getCountsLeft();
+  int rightCal = encoders.getCountsRight();
+  motors.setSpeeds(speedLeft, speedRight);
+  while(x < turn90){
+    int16_t countsLeft = encoders.getCountsLeft()-leftCal;
+    int16_t countsRight = encoders.getCountsRight()-rightCal;   
+    speedLeft = round(initialSpeed - (kpe * (countsLeft + countsRight)));
+    speedRight = - round(initialSpeed - (kpe * (countsRight + countsLeft)));
+    speedLeft = max(0,speedLeft);
+    speedLeft = min(400,speedLeft);
+    speedRight = max(-400,speedRight);
+    speedRight = min(0,speedRight);
+    motors.setSpeeds(speedLeft, speedRight);
+    x = (abs(countsLeft) + abs(countsRight))/2;
+    delay(samplingDelayE); 
+  }
+  motors.setSpeeds(0, 0);
 }
 
 void turnLeft(){
-  motors.setSpeeds(-200, 200); 
-  delay(310);
-  stopMotors();
+  int x = 0;
+  int speedLeft = -initialSpeed;
+  int speedRight = initialSpeed;
+  int leftCal = encoders.getCountsLeft();
+  int rightCal = encoders.getCountsRight();
+  motors.setSpeeds(speedLeft, speedRight);
+  while(x < turn90){
+    int16_t countsLeft = encoders.getCountsLeft()-leftCal;
+    int16_t countsRight = encoders.getCountsRight()-rightCal;   
+    speedLeft = - round(initialSpeed - (kpe * (countsLeft + countsRight)));
+    speedRight = round(initialSpeed - (kpe * (countsRight + countsLeft)));
+    speedLeft = max(-400,speedLeft);
+    speedLeft = min(0,speedLeft);
+    speedRight = max(0,speedRight);
+    speedRight = min(400,speedRight);
+    motors.setSpeeds(speedLeft, speedRight);
+    x = (abs(countsLeft) + abs(countsRight))/2;
+    delay(samplingDelayE); 
+  }
+  motors.setSpeeds(0, 0);
+}
+
+void turnAround(){
+  int x = 0;
+  int speedLeft = initialSpeed;
+  int speedRight = - initialSpeed;
+  int leftCal = encoders.getCountsLeft();
+  int rightCal = encoders.getCountsRight();
+  motors.setSpeeds(speedLeft, speedRight);
+  while(x < turn180){
+    int16_t countsLeft = encoders.getCountsLeft()-leftCal;
+    int16_t countsRight = encoders.getCountsRight()-rightCal;   
+    speedLeft = round(initialSpeed - (kpe * (countsLeft + countsRight)));
+    speedRight = - round(initialSpeed - (kpe * (countsRight + countsLeft)));
+    speedLeft = max(0,speedLeft);
+    speedLeft = min(400,speedLeft);
+    speedRight = max(-400,speedRight);
+    speedRight = min(0,speedRight);
+    motors.setSpeeds(speedLeft, speedRight);
+    x = (abs(countsLeft) + abs(countsRight))/2;
+    delay(samplingDelayE); 
+  }
+  motors.setSpeeds(0, 0);
 }
 
 void driveStraightUntilOpening(){
@@ -104,7 +167,7 @@ void driveStraightUntilOpening(){
       Serial.println(report);
     }
     clearPID();
-    driveInches(2);
+    driveInches(3);
   }
 }
 
@@ -168,4 +231,3 @@ void readUltrasonic(){
 void stopMotors(){
   motors.setSpeeds(0, 0);
 }
-
