@@ -17,10 +17,12 @@ const int rightEchoPin = 4;
 
 // ---- Performance Constants ----
 const int samplingDelay = 1; // in ms
+const int pauseDelay = 100;
 const long pulseTimeout = 10000; // in us
-const double kp = 6;
+const double kp = 7;
 const double ki = 0;
-const double kd = 10;
+const double kd = 5;
+const int maxError = 7; // cm
 const double rWheel = 19/25.4; // wheel radius in mm
 const int ticksPerRev = 610;
 const int initialSpeed = 175;
@@ -28,7 +30,11 @@ const char wallOpeningThresh = 14;
 const int samplingDelayE = 10; // in ms
 const double kpe = 0.8;  // proportional gain for encoders
 const int turn180 = 840; // total distance to travel in counts
-const int turn90 = 390;// total distance to travel in counts
+const int turn90 = 380;// total distance to travel in counts
+const int oneBlockAwayThresh = 27; // cm
+const int approachingWallCutoff = 6; // cm
+const int driveOneBlockDistance = 7; // inches
+const int centeringAdjustmentDistance = 2; // inches
 
 // ---- Variables ----
 long leftDuration;
@@ -49,7 +55,7 @@ boolean mazeComplete = false;
 
 void setup(){
   Serial1.begin(9600);
-  Serial1.println("----Solving Maze----");
+  Serial1.write("\n\n--------Solving Maze--------\n");
   stopMotors();
   pinMode(leftTrigPin,OUTPUT);
   pinMode(leftEchoPin,INPUT);
@@ -61,9 +67,12 @@ void setup(){
   pinMode(rightEchoPin,INPUT);
   delay(1500);
   while(mazeComplete == false){
-      for(int temp = 0;temp<7;temp++){
+      for(int temp = 0;temp<20;temp++){
+        Serial1.write("Iteration:");
+        Serial1.write(temp);
+        Serial1.write("\n");
         driveStraightUntilOpening();
-        delay(500);
+        delay(pauseDelay);
         makeDecision();   
       }   
       mazeComplete = true;
@@ -86,7 +95,7 @@ void makeDecision(){
   }
   else if (openRight){
     turnRight();
-    delay(500);
+    delay(pauseDelay);
     driveForwardOneBlock();
   }
   else if (openForward){
@@ -94,13 +103,13 @@ void makeDecision(){
   }
   else if (openLeft){
     turnLeft();
-    delay(500);
+    delay(pauseDelay);
     driveForwardOneBlock();
   }
   else{
     turnAround();
   }
-  delay(500);
+  delay(pauseDelay);
 }
 
 void turnRight(){
@@ -178,10 +187,10 @@ void turnAround(){
 void driveStraightUntilOpening(){
   readUltrasonic();
   error = leftDistance - rightDistance;
-  if (abs(error) < 7){
+  if ((abs(error) < maxError) && (frontDistance > approachingWallCutoff)){
     Serial1.write("driving straight until opening\n");
     motors.setSpeeds(speedLeft, speedRight);
-    while(abs(error) < 7){
+    while(abs(error) < maxError){
       error = leftDistance - rightDistance;
       integral = integral + error;
       derivative = error - lastError;
@@ -195,45 +204,65 @@ void driveStraightUntilOpening(){
       motors.setSpeeds(speedLeft, speedRight);    
       readUltrasonic();
     }
-    stopMotors();
+//    stopMotors();
     clearPID();
-    delay(500);
-    driveInches(3);
+    driveInches(centeringAdjustmentDistance);
   }
-  Serial1.write("I see and open path\n");
+  Serial1.write("I see an open path\n");
 }
 
 void driveForwardOneBlock(){
   readUltrasonic();
-  if (frontDistance < 30){
+  if (frontDistance < oneBlockAwayThresh){
     Serial1.write("driving 1 block towards wall\n");
-//    tone(6, 440, 200);
-    speedLeft = initialSpeed;
-    speedRight = initialSpeed;
-    motors.setSpeeds(speedLeft, speedRight);   
-    while(frontDistance > 5){
-       readUltrasonic();
-    }
-    stopMotors();
+    driveTowardsWall();
   }
   else{
     Serial1.write("driving 1 block with encoders\n");
-    driveInches(7);
+    driveInches(driveOneBlockDistance);
   }
 }
 
-void driveInches(double inches){
-  int16_t leftEncoderCal = encoders.getCountsLeft();
-  int16_t rightEncoderCal = encoders.getCountsRight();
+void driveTowardsWall(){
+  int16_t leftCal = encoders.getCountsLeft();
+  int16_t rightCal = encoders.getCountsRight();
   speedLeft = initialSpeed;
   speedRight = initialSpeed;
   motors.setSpeeds(speedLeft, speedRight);  
+  while(frontDistance > approachingWallCutoff){
+    int16_t countsLeft = encoders.getCountsLeft()-leftCal;
+    int16_t countsRight = encoders.getCountsRight()-rightCal;   
+    speedLeft = round(initialSpeed - (kpe * (countsLeft - countsRight)));
+    speedRight = round(initialSpeed - (kpe * (countsRight - countsLeft)));
+    speedLeft = max(0,speedLeft);
+    speedLeft = min(400,speedLeft);
+    speedRight = max(0,speedRight);
+    speedRight = min(400,speedRight);
+    motors.setSpeeds(speedLeft, speedRight); 
+    readUltrasonic();
+  }  
+  stopMotors();
+}
+
+void driveInches(double inches){
+  int16_t leftCal = encoders.getCountsLeft();
+  int16_t rightCal = encoders.getCountsRight();
+  motors.setSpeeds(initialSpeed, initialSpeed);  
   double leftDistanceTravelled = 0;
   double rightDistanceTravelled = 0;
   double avgDistance = 0;
   while(avgDistance < inches){
-    leftDistanceTravelled = (encoders.getCountsLeft()-leftEncoderCal) * 2 * pi * rWheel /ticksPerRev; // distance left wheel travelled in mm
-    rightDistanceTravelled = (encoders.getCountsRight()-rightEncoderCal) * 2 * pi * rWheel /ticksPerRev; // distance right wheel travelled in mm
+    int16_t countsLeft = encoders.getCountsLeft()-leftCal;
+    int16_t countsRight = encoders.getCountsRight()-rightCal;   
+    speedLeft = round(initialSpeed - (kpe * (countsLeft - countsRight)));
+    speedRight = round(initialSpeed - (kpe * (countsRight - countsLeft)));
+    speedLeft = max(0,speedLeft);
+    speedLeft = min(400,speedLeft);
+    speedRight = max(0,speedRight);
+    speedRight = min(400,speedRight);
+    motors.setSpeeds(speedLeft, speedRight);    
+    leftDistanceTravelled = countsLeft * 2 * pi * rWheel /ticksPerRev; // distance left wheel travelled in mm
+    rightDistanceTravelled = countsRight * 2 * pi * rWheel /ticksPerRev; // distance right wheel travelled in mm
     avgDistance = (leftDistanceTravelled+rightDistanceTravelled)/2;
     delay(samplingDelay);
   }  
@@ -248,44 +277,45 @@ void clearPID(){
 }
 
 void readUltrasonic(){
-   // Clear the trigger pins
-  digitalWrite(leftTrigPin,LOW);
-  digitalWrite(frontTrigPin,LOW);
-  digitalWrite(rightTrigPin,LOW);
-  delayMicroseconds(2);
-
-  // Read left sensor
-  digitalWrite(leftTrigPin,HIGH);
-  delayMicroseconds(10);
-  digitalWrite(leftTrigPin,LOW);
-  leftDuration = pulseIn(leftEchoPin,HIGH,pulseTimeout);
-
-  // Read front sensor
-  digitalWrite(frontTrigPin,HIGH);
-  delayMicroseconds(10);
-  digitalWrite(frontTrigPin,LOW);
-  frontDuration = pulseIn(frontEchoPin,HIGH,pulseTimeout);
-
-  // Read right sensor
-  digitalWrite(rightTrigPin,HIGH);
-  delayMicroseconds(10);
-  digitalWrite(rightTrigPin,LOW);
-  rightDuration = pulseIn(rightEchoPin,HIGH,pulseTimeout);
+  leftDistance = 0;
+  frontDistance = 0;
+  rightDistance = 0;
+  while((leftDistance == 0 || frontDistance == 0)  || rightDistance == 0){
+     // Clear the trigger pins
+    digitalWrite(leftTrigPin,LOW);
+    digitalWrite(frontTrigPin,LOW);
+    digitalWrite(rightTrigPin,LOW);
+    delayMicroseconds(2);
   
-  // Calculate distances
-  leftDistance = leftDuration*0.034/2;
-  frontDistance = frontDuration*0.034/2;
-  rightDistance = rightDuration*0.034/2; 
-  snprintf_P(report, sizeof(report),
-        PSTR("Distances: L%3d F%3d R%3d\n"),
-        int(leftDistance),int(frontDistance),int(rightDistance));  
-  Serial1.write(report);
-  if ((leftDistance == 0 || frontDistance == 0)  || rightDistance == 0){
-    tone(6, 1000, 200);
-    noTone(6);
-    delay(200);
-    tone(6, 1000, 200);
-    delay(200);
+    // Read left sensor
+    digitalWrite(leftTrigPin,HIGH);
+    delayMicroseconds(10);
+    digitalWrite(leftTrigPin,LOW);
+    leftDuration = pulseIn(leftEchoPin,HIGH,pulseTimeout);
+  
+    // Read front sensor
+    digitalWrite(frontTrigPin,HIGH);
+    delayMicroseconds(10);
+    digitalWrite(frontTrigPin,LOW);
+    frontDuration = pulseIn(frontEchoPin,HIGH,pulseTimeout);
+  
+    // Read right sensor
+    digitalWrite(rightTrigPin,HIGH);
+    delayMicroseconds(10);
+    digitalWrite(rightTrigPin,LOW);
+    rightDuration = pulseIn(rightEchoPin,HIGH,pulseTimeout);
+    
+    // Calculate distances
+    leftDistance = leftDuration*0.034/2;
+    frontDistance = frontDuration*0.034/2;
+    rightDistance = rightDuration*0.034/2; 
+    snprintf_P(report, sizeof(report),
+          PSTR("Distances: L%3d F%3d R%3d\n"),
+          int(leftDistance),int(frontDistance),int(rightDistance));  
+    Serial1.write(report);
+    if ((leftDistance == 0 || frontDistance == 0)  || rightDistance == 0){
+      Serial1.write("!!!!!!!!  Distance Error !!!!!!!!!!!!\n");
+    }    
   }
 }
 
