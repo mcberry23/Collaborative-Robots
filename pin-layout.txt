@@ -1,7 +1,7 @@
-14: HC12 TX
-17: HC12 RX
+0: HC12 TX
+1: HC12 RX
 2: Front Ultrasonic Trigger
-0: Front Ultrasonic Echo
+17: Front Ultrasonic Echo
 3: Right Ultrasonic Trigger
 4: Right Ultrasonic Echo
 5: Left Ultrasonic Trigger

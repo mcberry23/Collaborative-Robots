@@ -11,46 +11,46 @@ Zumo32U4ButtonC buttonC;
 const int leftTrigPin = 5;
 const int leftEchoPin = 11;
 const int frontTrigPin = 2;
-const int frontEchoPin = 0;
+const int frontEchoPin = 17;
 const int rightTrigPin = 3;
 const int rightEchoPin = 4;
 
 // ---- Performance Constants ----
 const int samplingDelay = 1; // in ms
 const long pulseTimeout = 10000; // in us
-const double kp = 1;
+const double kp = 6;
 const double ki = 0;
-const double kd = 6;
+const double kd = 10;
 const double rWheel = 19/25.4; // wheel radius in mm
 const int ticksPerRev = 610;
-const int initialSpeed = 200;
-
-// ---- Imported Constants for Turning ----
+const int initialSpeed = 175;
+const char wallOpeningThresh = 14;
 const int samplingDelayE = 10; // in ms
 const double kpe = 0.8;  // proportional gain for encoders
-const int turn180 = 820; // total distance to travel in counts
-const int turn90 = 395;// total distance to travel in counts
+const int turn180 = 840; // total distance to travel in counts
+const int turn90 = 390;// total distance to travel in counts
 
 // ---- Variables ----
 long leftDuration;
 long frontDuration;
 long rightDuration;
-int leftDistance;
-int frontDistance;
-int rightDistance;
-int error = 0;
+double leftDistance;
+double frontDistance;
+double rightDistance;
+double error = 0;
 int lastError = 0;
 int integral = 0;
 int derivative = 0;
 char report[80];
 int speedLeft = initialSpeed;
 int speedRight = initialSpeed;
+boolean mazeComplete = false;
+
 
 void setup(){
-  Serial.begin(9600);
-  Serial.println("Starting...");
+  Serial1.begin(9600);
+  Serial1.println("----Solving Maze----");
   stopMotors();
-  delay(1000);  
   pinMode(leftTrigPin,OUTPUT);
   pinMode(leftEchoPin,INPUT);
   
@@ -59,22 +59,52 @@ void setup(){
   
   pinMode(rightTrigPin,OUTPUT);
   pinMode(rightEchoPin,INPUT);
-   
+  delay(1500);
+  while(mazeComplete == false){
+      for(int temp = 0;temp<7;temp++){
+        driveStraightUntilOpening();
+        delay(500);
+        makeDecision();   
+      }   
+      mazeComplete = true;
+  }
 }
 
 void loop(){
-  driveStraightUntilOpening();
-  delay(200);
-  if (rightDistance > 9){
-    turnRight();
-  }else{
-    turnLeft();
+
+}
+
+void makeDecision(){
+  Serial1.write("making decision...\n");
+  readUltrasonic();
+  boolean openRight = rightDistance > wallOpeningThresh;
+  boolean openLeft = leftDistance > wallOpeningThresh;
+  boolean openForward = frontDistance > wallOpeningThresh;
+  if ((openRight && openLeft) && openForward){
+    mazeComplete = true;
+    Serial1.write("maze completed\n");
   }
-  delay(200);
-  driveInches(6.5);
+  else if (openRight){
+    turnRight();
+    delay(500);
+    driveForwardOneBlock();
+  }
+  else if (openForward){
+    driveStraightUntilOpening();
+  }
+  else if (openLeft){
+    turnLeft();
+    delay(500);
+    driveForwardOneBlock();
+  }
+  else{
+    turnAround();
+  }
+  delay(500);
 }
 
 void turnRight(){
+  Serial1.write("turning right\n");
   int x = 0;
   int speedLeft = initialSpeed;
   int speedRight = - initialSpeed;
@@ -98,6 +128,7 @@ void turnRight(){
 }
 
 void turnLeft(){
+  Serial1.write("turning left\n");
   int x = 0;
   int speedLeft = -initialSpeed;
   int speedRight = initialSpeed;
@@ -121,6 +152,7 @@ void turnLeft(){
 }
 
 void turnAround(){
+  Serial1.write("turning around\n");
   int x = 0;
   int speedLeft = initialSpeed;
   int speedRight = - initialSpeed;
@@ -147,9 +179,9 @@ void driveStraightUntilOpening(){
   readUltrasonic();
   error = leftDistance - rightDistance;
   if (abs(error) < 7){
+    Serial1.write("driving straight until opening\n");
     motors.setSpeeds(speedLeft, speedRight);
     while(abs(error) < 7){
-      readUltrasonic();
       error = leftDistance - rightDistance;
       integral = integral + error;
       derivative = error - lastError;
@@ -161,18 +193,36 @@ void driveStraightUntilOpening(){
       speedRight = max(0,speedRight);
       speedRight = min(400,speedRight);
       motors.setSpeeds(speedLeft, speedRight);    
-      snprintf_P(report, sizeof(report),
-            PSTR("Distances: L%6d F%6d R%6d | Speeds: L%6d R%6d | Error: %6d"),
-            leftDistance,frontDistance,rightDistance,speedLeft,speedRight,error);
-      Serial.println(report);
+      readUltrasonic();
     }
+    stopMotors();
     clearPID();
+    delay(500);
     driveInches(3);
+  }
+  Serial1.write("I see and open path\n");
+}
+
+void driveForwardOneBlock(){
+  readUltrasonic();
+  if (frontDistance < 30){
+    Serial1.write("driving 1 block towards wall\n");
+//    tone(6, 440, 200);
+    speedLeft = initialSpeed;
+    speedRight = initialSpeed;
+    motors.setSpeeds(speedLeft, speedRight);   
+    while(frontDistance > 5){
+       readUltrasonic();
+    }
+    stopMotors();
+  }
+  else{
+    Serial1.write("driving 1 block with encoders\n");
+    driveInches(7);
   }
 }
 
 void driveInches(double inches){
-  Serial.println("Centering...");
   int16_t leftEncoderCal = encoders.getCountsLeft();
   int16_t rightEncoderCal = encoders.getCountsRight();
   speedLeft = initialSpeed;
@@ -226,6 +276,17 @@ void readUltrasonic(){
   leftDistance = leftDuration*0.034/2;
   frontDistance = frontDuration*0.034/2;
   rightDistance = rightDuration*0.034/2; 
+  snprintf_P(report, sizeof(report),
+        PSTR("Distances: L%3d F%3d R%3d\n"),
+        int(leftDistance),int(frontDistance),int(rightDistance));  
+  Serial1.write(report);
+  if ((leftDistance == 0 || frontDistance == 0)  || rightDistance == 0){
+    tone(6, 1000, 200);
+    noTone(6);
+    delay(200);
+    tone(6, 1000, 200);
+    delay(200);
+  }
 }
 
 void stopMotors(){

@@ -7,7 +7,7 @@ long leftDuration;
 int leftDistance;
 
 const int frontTrigPin = 2;
-const int frontEchoPin = 0;
+const int frontEchoPin = 17;
 long frontDuration;
 int frontDistance;
 
@@ -47,13 +47,13 @@ void loop() {
   digitalWrite(frontTrigPin,HIGH);
   delayMicroseconds(10);
   digitalWrite(frontTrigPin,LOW);
-  frontDuration = pulseIn(frontEchoPin,HIGH,0.5);
+  frontDuration = pulseIn(frontEchoPin,HIGH);
 
   // Read right sensor
   digitalWrite(rightTrigPin,HIGH);
   delayMicroseconds(10);
   digitalWrite(rightTrigPin,LOW);
-  rightDuration = pulseIn(rightEchoPin,HIGH, 0.5);
+  rightDuration = pulseIn(rightEchoPin,HIGH);
   
   // Calculate distances
   leftDistance = leftDuration*0.034/2;
@@ -65,8 +65,8 @@ void loop() {
         leftDistance,frontDistance,rightDistance);
   
   Serial.println(report);
-  
-  //Serial.print("Distance: ");
-  //Serial.println(frontDistance);
+//  
+//  Serial.print("Distance: ");
+//  Serial.println(frontDistance);
 
 }
