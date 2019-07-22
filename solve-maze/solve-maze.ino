@@ -37,13 +37,14 @@ const int maxError = 7; // cm
 const double rWheel = 19/25.4; // wheel radius in mm
 const int ticksPerRev = 610;
 const int initialSpeed = 190;
+const int turnSpeed = 175;
 const char wallOpeningThresh = 14;
 const int samplingDelayE = 10; // in ms
 const double kpe = 0.8;  // proportional gain for encoders
 const int turn180 = 840; // total distance to travel in counts
-const int turn90 = 380;// total distance to travel in counts
+const int turn90 = 385;// total distance to travel in counts
 const int oneBlockAwayThresh = 27; // cm
-const int approachingWallCutoff = 7; // cm
+const int approachingWallCutoff = 6; // cm
 const int driveOneBlockDistance = 7; // inches
 const int centeringAdjustmentDistance = 1; // inches
 
@@ -107,6 +108,11 @@ void makeDecision(){
   }
   else if (openRight){
     turnRight();
+    if (!openLeft){
+      motors.setSpeeds(-turnSpeed, -turnSpeed);
+      delay(200);
+    }
+    stopMotors();
     delay(pauseDelay);
     driveForwardOneBlock();
   }
@@ -115,11 +121,18 @@ void makeDecision(){
   }
   else if (openLeft){
     turnLeft();
+    if (!openRight){
+      motors.setSpeeds(-turnSpeed, -turnSpeed);
+      delay(200);
+    }
     delay(pauseDelay);
     driveForwardOneBlock();
   }
   else{
     turnAround();
+    motors.setSpeeds(-turnSpeed, -turnSpeed);
+    delay(200);
+    stopMotors();
   }
   delay(pauseDelay);
 }
@@ -127,16 +140,16 @@ void makeDecision(){
 void turnRight(){
   Serial1.write("turning right\n");
   int x = 0;
-  int speedLeft = initialSpeed;
-  int speedRight = - initialSpeed;
+  int speedLeft = turnSpeed;
+  int speedRight = - turnSpeed;
   int leftCal = encoders.getCountsLeft();
   int rightCal = encoders.getCountsRight();
   motors.setSpeeds(speedLeft, speedRight);
   while(x < turn90){
     int16_t countsLeft = encoders.getCountsLeft()-leftCal;
     int16_t countsRight = encoders.getCountsRight()-rightCal;   
-    speedLeft = round(initialSpeed - (kpe * (countsLeft + countsRight)));
-    speedRight = - round(initialSpeed - (kpe * (countsRight + countsLeft)));
+    speedLeft = round(turnSpeed - (kpe * (countsLeft + countsRight)));
+    speedRight = - round(turnSpeed - (kpe * (countsRight + countsLeft)));
     speedLeft = max(0,speedLeft);
     speedLeft = min(400,speedLeft);
     speedRight = max(-400,speedRight);
@@ -151,16 +164,16 @@ void turnRight(){
 void turnLeft(){
   Serial1.write("turning left\n");
   int x = 0;
-  int speedLeft = -initialSpeed;
-  int speedRight = initialSpeed;
+  int speedLeft = -turnSpeed;
+  int speedRight = turnSpeed;
   int leftCal = encoders.getCountsLeft();
   int rightCal = encoders.getCountsRight();
   motors.setSpeeds(speedLeft, speedRight);
   while(x < turn90){
     int16_t countsLeft = encoders.getCountsLeft()-leftCal;
     int16_t countsRight = encoders.getCountsRight()-rightCal;   
-    speedLeft = - round(initialSpeed - (kpe * (countsLeft + countsRight)));
-    speedRight = round(initialSpeed - (kpe * (countsRight + countsLeft)));
+    speedLeft = - round(turnSpeed - (kpe * (countsLeft + countsRight)));
+    speedRight = round(turnSpeed - (kpe * (countsRight + countsLeft)));
     speedLeft = max(-400,speedLeft);
     speedLeft = min(0,speedLeft);
     speedRight = max(0,speedRight);
@@ -174,17 +187,19 @@ void turnLeft(){
 
 void turnAround(){
   Serial1.write("turning around\n");
-  int x = 0;
-  int speedLeft = initialSpeed;
-  int speedRight = - initialSpeed;
+  int x = 0;  
   int leftCal = encoders.getCountsLeft();
   int rightCal = encoders.getCountsRight();
+  motors.setSpeeds(-turnSpeed, -turnSpeed);
+  delay(200);
+  int speedLeft = turnSpeed*0.5;
+  int speedRight = -turnSpeed*0.5;
   motors.setSpeeds(speedLeft, speedRight);
   while(x < turn180){
     int16_t countsLeft = encoders.getCountsLeft()-leftCal;
     int16_t countsRight = encoders.getCountsRight()-rightCal;   
-    speedLeft = round(initialSpeed - (kpe * (countsLeft + countsRight)));
-    speedRight = - round(initialSpeed - (kpe * (countsRight + countsLeft)));
+    speedLeft = round((turnSpeed*0.5) - (kpe * (countsLeft + countsRight)));
+    speedRight = - round((turnSpeed*0.5) - (kpe * (countsRight + countsLeft)));
     speedLeft = max(0,speedLeft);
     speedLeft = min(400,speedLeft);
     speedRight = max(-400,speedRight);
@@ -202,7 +217,7 @@ void driveStraightUntilOpening(){
   if ((abs(error) < maxError) && (frontDistance > approachingWallCutoff)){
     Serial1.write("driving straight until opening\n");
     motors.setSpeeds(speedLeft, speedRight);
-    while(abs(error) < maxError){
+    while((abs(error) < maxError) && (frontDistance > approachingWallCutoff)){
       error = leftDistance - rightDistance;
       integral = integral + error;
       derivative = error - lastError;
