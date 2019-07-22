@@ -64,29 +64,8 @@ int speedLeft = initialSpeed;
 int speedRight = initialSpeed;
 boolean mazeComplete = false;
 
-// ---- Mapping Variable ----
-uint8_t stateMap[6][12];
-int rHeading;
-uint8_t x;
-uint8_t y;
-uint8_t blocksTravelled;
-
 
 void setup(){
-
-  // starting conditions
-  blocksTravelled = 0;
-  rHeading = 90;
-  x = 0;
-  y = 0;
-
-  // zero out the map
-  for(int i=0;i<12;i++){
-    for(int j=0;j<6;j++){
-      stateMap[i][j] = 0;
-    }
-  }
-  
   Serial1.begin(9600);
   Serial1.write("\n\n--------Solving Maze--------\n");
   stopMotors();
@@ -367,58 +346,6 @@ void readUltrasonic(){
       Serial1.write("!!!!!!!!  Distance Error !!!!!!!!!!!!\n");
     }    
   }
-}
-
-void printMap(){
-  Serial1.println("----State Map----");
-  for(int i=0;i<12;i++){
-    for(int j=0;j<6;j++){
-      Serial1.print(stateMap[j][i]);
-      Serial1.print(" ");
-    }
-    Serial1.println();
-    Serial1.println("----END----");
-  }
-}
-
-void updateMap(){
-  if(rHeading == 0){
-    stateMap[x][y]++;
-    while(blocksTravelled > 0){
-      x++;
-      stateMap[x][y]++;
-      blocksTravelled--;
-    }
-    blocksTravelled = 0;
-  }
-  else if(rHeading == 90){
-    stateMap[x][y] = 1;
-    while(blocksTravelled > 0){
-      y++;
-      stateMap[x][y]++;
-      blocksTravelled--;
-    }
-    blocksTravelled = 0;
-  }
-  else if(rHeading == 180){
-    stateMap[x][y]++;
-    while(blocksTravelled > 0){
-      x--;
-      stateMap[x][y]++;
-      blocksTravelled--;
-    }
-    blocksTravelled = 0;
-  }
-  else if(rHeading == 270){
-    stateMap[x][y]++;
-    while(blocksTravelled > 0){
-      y--;
-      stateMap[x][y]++;
-      blocksTravelled--;
-    }
-    blocksTravelled = 0;
-  }
-  //printMap();
 }
 
 void stopMotors(){
