@@ -3,21 +3,20 @@
 
 Zumo32U4Encoders encoders;
 Zumo32U4Motors motors;
-Zumo32U4ButtonC buttonC;
 
 #define pi 3.14159265359
-
-extern void makeDecision();
-extern void turnRight();
-extern void turnLeft();
-extern void turnAround();
-extern void driveStraightUntilOpening();
-extern void driveForwardOneBlock();
-extern void driveTowardsWall();
-extern void driveInches(double inches);
-extern void clearPID();
-extern void readUltrasonic();
-extern void stopMotors();
+//
+//extern void makeDecision();
+//extern void turnRight();
+//extern void turnLeft();
+//extern void turnAround();
+//extern void driveStraightUntilOpening();
+//extern void driveForwardOneBlock();
+//extern void driveTowardsWall();
+//extern void driveInches(double inches);
+//extern void clearPID();
+//extern void readUltrasonic();
+//extern void stopMotors();
 
 // ---- Pin Setup ----
 const int leftTrigPin = 5;
@@ -31,7 +30,7 @@ const int rightEchoPin = 4;
 const int samplingDelay = 1; // in ms
 const int pauseDelay = 100;
 const long pulseTimeout = 10000; // in us
-const double kp = 7;
+const double kp = 8;
 const double ki = 0;
 const double kd = 4;
 const int maxError = 7; // cm
@@ -46,7 +45,7 @@ const int turn90 = 380;// total distance to travel in counts
 const int oneBlockAwayThresh = 27; // cm
 const int approachingWallCutoff = 7; // cm
 const int driveOneBlockDistance = 7; // inches
-const int centeringAdjustmentDistance = 2; // inches
+const int centeringAdjustmentDistance = 1; // inches
 
 // ---- Variables ----
 long leftDuration;
@@ -218,6 +217,8 @@ void driveStraightUntilOpening(){
       readUltrasonic();
     }
 //    stopMotors();
+    motors.setSpeeds(speedRight, speedLeft);// fix error from last iteration
+    delay(40);  
     clearPID();
     driveInches(centeringAdjustmentDistance);
   }
