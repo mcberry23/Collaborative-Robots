@@ -5,19 +5,6 @@ Zumo32U4Encoders encoders;
 Zumo32U4Motors motors;
 
 #define pi 3.14159265359
-//
-//extern void makeDecision();
-//extern void turnRight();
-//extern void turnLeft();
-//extern void turnAround();
-//extern void driveStraightUntilOpening();
-//extern void driveForwardOneBlock();
-//extern void driveTowardsWall();
-//extern void driveInches(double inches);
-//extern void clearPID();
-//extern void readUltrasonic();
-//extern void stopMotors();
-
 // ---- Pin Setup ----
 const int leftTrigPin = 5;
 const int leftEchoPin = 11;
@@ -44,9 +31,9 @@ const double kpe = 0.8;  // proportional gain for encoders
 const int turn180 = 840; // total distance to travel in counts
 const int turn90 = 385;// total distance to travel in counts
 const int oneBlockAwayThresh = 27; // cm
-const int approachingWallCutoff = 6; // cm
-const int driveOneBlockDistance = 7; // inches
-const int centeringAdjustmentDistance = 1; // inches
+const int approachingWallCutoff = 5; // cm
+const int driveOneBlockDistance = 8; // inches
+const int centeringAdjustmentDistance = 2; // inches
 
 // ---- Variables ----
 long leftDuration;
@@ -98,7 +85,8 @@ void loop(){
 
 void makeDecision(){
   Serial1.write("making decision...\n");
-  readUltrasonic();
+  readSideUltrasonic();
+  readFrontUltrasonic();
   boolean openRight = rightDistance > wallOpeningThresh;
   boolean openLeft = leftDistance > wallOpeningThresh;
   boolean openForward = frontDistance > wallOpeningThresh;
@@ -131,7 +119,7 @@ void makeDecision(){
   else{
     turnAround();
     motors.setSpeeds(-turnSpeed, -turnSpeed);
-    delay(200);
+    delay(400);
     stopMotors();
   }
   delay(pauseDelay);
@@ -187,19 +175,20 @@ void turnLeft(){
 
 void turnAround(){
   Serial1.write("turning around\n");
-  int x = 0;  
+  int x = 0; 
+  motors.setSpeeds(-turnSpeed, -turnSpeed);
+  delay(100);
+  stopMotors();
+  int speedLeft = turnSpeed;
+  int speedRight = -turnSpeed;
+  motors.setSpeeds(speedLeft, speedRight);
   int leftCal = encoders.getCountsLeft();
   int rightCal = encoders.getCountsRight();
-  motors.setSpeeds(-turnSpeed, -turnSpeed);
-  delay(200);
-  int speedLeft = turnSpeed*0.5;
-  int speedRight = -turnSpeed*0.5;
-  motors.setSpeeds(speedLeft, speedRight);
   while(x < turn180){
     int16_t countsLeft = encoders.getCountsLeft()-leftCal;
     int16_t countsRight = encoders.getCountsRight()-rightCal;   
-    speedLeft = round((turnSpeed*0.5) - (kpe * (countsLeft + countsRight)));
-    speedRight = - round((turnSpeed*0.5) - (kpe * (countsRight + countsLeft)));
+    speedLeft = round((turnSpeed) - (kpe * (countsLeft + countsRight)));
+    speedRight = - round((turnSpeed) - (kpe * (countsRight + countsLeft)));
     speedLeft = max(0,speedLeft);
     speedLeft = min(400,speedLeft);
     speedRight = max(-400,speedRight);
@@ -208,11 +197,12 @@ void turnAround(){
     x = (abs(countsLeft) + abs(countsRight))/2;
     delay(samplingDelayE); 
   }
-  motors.setSpeeds(0, 0);
+  stopMotors();
 }
 
 void driveStraightUntilOpening(){
-  readUltrasonic();
+  readSideUltrasonic();
+  readFrontUltrasonic();
   error = leftDistance - rightDistance;
   if ((abs(error) < maxError) && (frontDistance > approachingWallCutoff)){
     Serial1.write("driving straight until opening\n");
@@ -229,7 +219,8 @@ void driveStraightUntilOpening(){
       speedRight = max(0,speedRight);
       speedRight = min(400,speedRight);
       motors.setSpeeds(speedLeft, speedRight);    
-      readUltrasonic();
+      readSideUltrasonic();
+      readFrontUltrasonic();
     }
 //    stopMotors();
     motors.setSpeeds(speedRight, speedLeft);// fix error from last iteration
@@ -241,7 +232,7 @@ void driveStraightUntilOpening(){
 }
 
 void driveForwardOneBlock(){
-  readUltrasonic();
+  readFrontUltrasonic();
   if (frontDistance < oneBlockAwayThresh){
     Serial1.write("driving 1 block towards wall\n");
     driveTowardsWall();
@@ -268,7 +259,7 @@ void driveTowardsWall(){
     speedRight = max(0,speedRight);
     speedRight = min(400,speedRight);
     motors.setSpeeds(speedLeft, speedRight); 
-    readUltrasonic();
+    readFrontUltrasonic();
   }  
   stopMotors();
 }
@@ -305,14 +296,12 @@ void clearPID(){
   integral = 0;
 }
 
-void readUltrasonic(){
+void readSideUltrasonic(){
   leftDistance = 0;
-  frontDistance = 0;
   rightDistance = 0;
-  while((leftDistance == 0 || frontDistance == 0)  || rightDistance == 0){
+  while(leftDistance == 0 || rightDistance == 0){
      // Clear the trigger pins
     digitalWrite(leftTrigPin,LOW);
-    digitalWrite(frontTrigPin,LOW);
     digitalWrite(rightTrigPin,LOW);
     delayMicroseconds(2);
   
@@ -321,13 +310,7 @@ void readUltrasonic(){
     delayMicroseconds(10);
     digitalWrite(leftTrigPin,LOW);
     leftDuration = pulseIn(leftEchoPin,HIGH,pulseTimeout);
-  
-    // Read front sensor
-    digitalWrite(frontTrigPin,HIGH);
-    delayMicroseconds(10);
-    digitalWrite(frontTrigPin,LOW);
-    frontDuration = pulseIn(frontEchoPin,HIGH,pulseTimeout);
-  
+    
     // Read right sensor
     digitalWrite(rightTrigPin,HIGH);
     delayMicroseconds(10);
@@ -336,13 +319,33 @@ void readUltrasonic(){
     
     // Calculate distances
     leftDistance = leftDuration*0.034/2;
-    frontDistance = frontDuration*0.034/2;
     rightDistance = rightDuration*0.034/2; 
     snprintf_P(report, sizeof(report),
-          PSTR("Distances: L%3d F%3d R%3d\n"),
-          int(leftDistance),int(frontDistance),int(rightDistance));  
+          PSTR("Distances: L%3d R%3d\n"),
+          int(leftDistance),int(rightDistance));  
     Serial1.write(report);
-    if ((leftDistance == 0 || frontDistance == 0)  || rightDistance == 0){
+    if (leftDistance == 0 || rightDistance == 0){
+      Serial1.write("!!!!!!!!  Distance Error !!!!!!!!!!!!\n");
+    }    
+  }
+}
+
+void readFrontUltrasonic(){
+  frontDistance = 0;
+  while(frontDistance == 0){
+     // Clear the trigger pins
+    digitalWrite(frontTrigPin,LOW);
+    delayMicroseconds(2);
+
+    // Read front sensor
+    digitalWrite(frontTrigPin,HIGH);
+    delayMicroseconds(10);
+    digitalWrite(frontTrigPin,LOW);
+    frontDuration = pulseIn(frontEchoPin,HIGH,pulseTimeout);
+
+    // Calculate distances
+    frontDistance = frontDuration*0.034/2;
+    if (frontDistance == 0){
       Serial1.write("!!!!!!!!  Distance Error !!!!!!!!!!!!\n");
     }    
   }
