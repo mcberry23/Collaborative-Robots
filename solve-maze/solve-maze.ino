@@ -7,6 +7,18 @@ Zumo32U4ButtonC buttonC;
 
 #define pi 3.14159265359
 
+extern void makeDecision();
+extern void turnRight();
+extern void turnLeft();
+extern void turnAround();
+extern void driveStraightUntilOpening();
+extern void driveForwardOneBlock();
+extern void driveTowardsWall();
+extern void driveInches(double inches);
+extern void clearPID();
+extern void readUltrasonic();
+extern void stopMotors();
+
 // ---- Pin Setup ----
 const int leftTrigPin = 5;
 const int leftEchoPin = 11;
@@ -21,18 +33,18 @@ const int pauseDelay = 100;
 const long pulseTimeout = 10000; // in us
 const double kp = 7;
 const double ki = 0;
-const double kd = 5;
+const double kd = 4;
 const int maxError = 7; // cm
 const double rWheel = 19/25.4; // wheel radius in mm
 const int ticksPerRev = 610;
-const int initialSpeed = 175;
+const int initialSpeed = 190;
 const char wallOpeningThresh = 14;
 const int samplingDelayE = 10; // in ms
 const double kpe = 0.8;  // proportional gain for encoders
 const int turn180 = 840; // total distance to travel in counts
 const int turn90 = 380;// total distance to travel in counts
 const int oneBlockAwayThresh = 27; // cm
-const int approachingWallCutoff = 6; // cm
+const int approachingWallCutoff = 7; // cm
 const int driveOneBlockDistance = 7; // inches
 const int centeringAdjustmentDistance = 2; // inches
 
@@ -67,10 +79,11 @@ void setup(){
   pinMode(rightEchoPin,INPUT);
   delay(1500);
   while(mazeComplete == false){
-      for(int temp = 0;temp<20;temp++){
-        Serial1.write("Iteration:");
-        Serial1.write(temp);
-        Serial1.write("\n");
+      for(int temp = 0;temp<70;temp++){
+        snprintf_P(report, sizeof(report),
+          PSTR("Iteration: %3d\n"),
+          temp);  
+        Serial1.write(report);
         driveStraightUntilOpening();
         delay(pauseDelay);
         makeDecision();   
@@ -99,7 +112,7 @@ void makeDecision(){
     driveForwardOneBlock();
   }
   else if (openForward){
-    driveStraightUntilOpening();
+    driveForwardOneBlock();
   }
   else if (openLeft){
     turnLeft();
