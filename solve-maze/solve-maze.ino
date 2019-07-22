@@ -51,10 +51,26 @@ int speedLeft = initialSpeed;
 int speedRight = initialSpeed;
 boolean mazeComplete = false;
 
+// ---- Map Parameters ----
+uint8_t stateMap[6][12];
+int16_t rHeading;
+uint8_t blocksTravelled;
+uint8_t x;
+uint8_t y;
 
 void setup(){
+  
+  // starting conditions
+  rHeading = 90;
+  x = 0;
+  y = 0;
+  blocksTravelled = 0;
+  stateMap[x][y]++;
+  
   Serial1.begin(9600);
-  Serial1.write("\n\n--------Solving Maze--------\n");
+  Serial1.write("\n\n--------Solving Maze--------\n ");
+  Serial1.print(rHeading);
+  Serial1.write("\n-----\n");
   stopMotors();
   pinMode(leftTrigPin,OUTPUT);
   pinMode(leftEchoPin,INPUT);
@@ -126,6 +142,11 @@ void makeDecision(){
 }
 
 void turnRight(){
+  rHeading = rHeading - 90;
+  if(rHeading<0){
+    rHeading = rHeading + 360;
+  }
+  //Serial1.print(rHeading);
   Serial1.write("turning right\n");
   int x = 0;
   int speedLeft = turnSpeed;
@@ -150,6 +171,11 @@ void turnRight(){
 }
 
 void turnLeft(){
+  rHeading = rHeading + 90;
+  if(rHeading>=360){
+    rHeading = rHeading - 360;
+  }
+  //Serial1.print(rHeading);
   Serial1.write("turning left\n");
   int x = 0;
   int speedLeft = -turnSpeed;
@@ -174,6 +200,14 @@ void turnLeft(){
 }
 
 void turnAround(){
+  rHeading = rHeading + 180;
+  if(rHeading>=360){
+    rHeading = rHeading - 360;
+  }
+  else if (rHeading<0){
+    rHeading = rHeading + 360;
+  }
+  //Serial1.print(rHeading);
   Serial1.write("turning around\n");
   int x = 0; 
   motors.setSpeeds(-turnSpeed, -turnSpeed);
@@ -201,6 +235,9 @@ void turnAround(){
 }
 
 void driveStraightUntilOpening(){
+  int countLeftTemp = encoders.getCountsLeft();
+  int countRightTemp = encoders.getCountsRight();
+  int avgCountTemp = 0;
   readSideUltrasonic();
   readFrontUltrasonic();
   error = leftDistance - rightDistance;
@@ -229,6 +266,22 @@ void driveStraightUntilOpening(){
     driveInches(centeringAdjustmentDistance);
   }
   Serial1.write("I see an open path\n");
+  countLeftTemp = encoders.getCountsLeft() - countLeftTemp;
+  countRightTemp = encoders.getCountsRight() - countRightTemp;
+  avgCountTemp = (countLeftTemp+countRightTemp)/2;
+  if(avgCountTemp > 905){
+    blocksTravelled = (int)(avgCountTemp/905);
+  }
+  else if((avgCountTemp > 700)&&(avgCountTemp < 905)){
+    blocksTravelled = 1;
+  }
+  Serial1.write("-----\n");
+  Serial1.print(avgCountTemp);
+  Serial1.write("\n-----\n");
+  Serial1.print(blocksTravelled);
+  Serial1.print("\n-----\n");
+  updateMap();
+  printMap();
 }
 
 void driveForwardOneBlock(){
@@ -241,6 +294,9 @@ void driveForwardOneBlock(){
     Serial1.write("driving 1 block with encoders\n");
     driveInches(driveOneBlockDistance);
   }
+  blocksTravelled = 1;
+  updateMap();
+  printMap();
 }
 
 void driveTowardsWall(){
@@ -353,4 +409,56 @@ void readFrontUltrasonic(){
 
 void stopMotors(){
   motors.setSpeeds(0, 0);
+}
+
+void updateMap(){
+  if(rHeading == 0){
+    while(blocksTravelled > 0){
+      x++;
+      stateMap[x][y]++;
+      blocksTravelled--;
+    }
+    blocksTravelled = 0;
+  }
+  else if(rHeading == 90){
+    while(blocksTravelled > 0){
+      y++;
+      stateMap[x][y]++;
+      blocksTravelled--;
+    }
+    blocksTravelled = 0;
+  }
+  else if(rHeading == 180){
+    while(blocksTravelled > 0){
+      x--;
+      stateMap[x][y]++;
+      blocksTravelled--;
+    }
+    blocksTravelled = 0;
+  }
+  else if(rHeading == 270){
+    while(blocksTravelled > 0){
+      y--;
+      stateMap[x][y]++;
+      blocksTravelled--;
+    }
+    blocksTravelled = 0;
+  }
+}
+
+void printMap(){
+  Serial1.println("----x,y----");
+  Serial1.print("x: ");
+  Serial1.print(x);
+  Serial1.print(", y: ");
+  Serial1.println(y);
+  Serial1.println("----Map Matrix----");
+  for(int i=11;i>=0;i--){
+    for(int j=0;j<6;j++){
+      Serial1.print(stateMap[j][i]);
+      Serial1.print(" ");
+    }
+    Serial1.println();
+  }
+  Serial1.println("----END----");
 }
