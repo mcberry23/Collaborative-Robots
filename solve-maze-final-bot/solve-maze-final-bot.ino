@@ -52,10 +52,20 @@ boolean mazeComplete = false;
 
 // ---- Map Parameters ----
 uint8_t stateMap[6][12];
+uint8_t stateMapA[6][12];
+uint8_t stateMapB[6][12];
+uint8_t stateMapC[6][12];
+uint8_t optimalPathMap[6][12];
 int16_t rHeading;
 uint8_t blocksTravelled;
 uint8_t x = 0;
 uint8_t y = 0;
+
+// ---- Rx Parameters ----
+char robot = 'C';
+char packet[157];
+boolean recievedMapA = false;
+boolean recievedMapB = false;
 
 void makeDecisionRight(){
   Serial1.write("making decision...\n");
@@ -466,6 +476,209 @@ void printMap(){
   Serial1.println("----END----");
 }
 
+void rxPacket(){
+  char incomingByte;
+  uint8_t index = 0;
+  while(true){
+    if(Serial1.available()>0){
+      incomingByte = char(Serial1.read());
+      packet[index] = incomingByte;
+      index++;
+    }
+    if(index==157){
+      packet[index] = '\0';
+      break;
+    }
+  }
+
+  if(packet[2] == robot){ // if to me
+    if(packet[6] == 'A'){ // if from A
+      if(packet[10] == 'M'){ // if matrix
+        recievedMapA = true;
+//        Serial.print("\n----Recieving----\n");
+//        Serial.print("To: ");
+//        Serial.print(packet[2]);
+//        Serial.print("\nFrom: ");
+//        Serial.print(packet[6]);
+//        Serial.print("\nData: ");
+//        Serial.print(packet[10]);
+//        Serial.print("\n----END----\n");
+        int tempIndex = 0;
+        for(int i=12;i<155;i++){
+          if(packet[i] != ' '){
+            int x = ((i%12)/2);
+            int y = ((i/12)-1);
+            int val = int(packet[i])-48;
+          stateMapA[x][y] = val;
+          }
+        }
+      }
+    }
+    else if(packet[6] == 'B'){ // if from B
+      if(packet[10] == 'M'){ // if matrix
+        recievedMapB = true;
+//        Serial.print("\n----Recieving----\n");
+//        Serial.print("To: ");
+//        Serial.print(packet[2]);
+//        Serial.print("\nFrom: ");
+//        Serial.print(packet[6]);
+//        Serial.print("\nData: ");
+//        Serial.print(packet[10]);
+//        Serial.print("\n----END----\n");
+        int tempIndex = 0;
+        for(int i=12;i<155;i++){
+          if(packet[i] != ' '){
+            int x = ((i%12)/2);
+            int y = ((i/12)-1);
+            int val = int(packet[i])-48;
+          stateMapB[x][y] = val;
+          }
+        }
+      }
+    }
+    else if(packet[6] == 'C'){ // if from C
+      if(packet[10] == 'M'){ // if matrix
+        Serial.print("\n----Recieving----\n");
+        Serial.print("To: ");
+        Serial.print(packet[2]);
+        Serial.print("\nFrom: ");
+        Serial.print(packet[6]);
+        Serial.print("\nData: ");
+        Serial.print(packet[10]);
+        Serial.print("\n----END----\n");
+        int tempIndex = 0;
+        for(int i=12;i<155;i++){
+          if(packet[i] != ' '){
+            int x = ((i%12)/2);
+            int y = ((i/12)-1);
+            int val = int(packet[i])-48;
+          stateMapC[x][y] = val;
+          }
+        }
+      }
+    }
+  }
+}
+
+void compareMaps(){
+  for(int i=0;i<12;i++){
+    for(int j=0;j<6;j++){
+      if((stateMapA[j][i] == 0)||(stateMapB[j][i] == 0)){
+        optimalPathMap[j][i] = 0;
+      }
+      else if((stateMapA[j][i] > 1)&&(stateMapB[j][i] > 1)){
+        optimalPathMap[j][i] = 0;
+      }
+      else{
+        optimalPathMap[j][i] = 1;
+      }
+    }
+  }
+}
+
+int lookLeft(int _x, int _y){
+  int nextX = _x - 1;
+  if(nextX < 0){ // if out of bounds
+    return 0;
+  }
+  else{ // else within bounds
+    int nextY = _y;
+    int nextBlock = optimalPathMap[nextX][nextY];
+    if(nextBlock = 0){ // if left isn't part of optimal path
+      return 0;
+    }
+    else{ // else left is part of optimal path
+      readSideUltrasonic();
+      boolean openLeft = leftDistance > wallOpeningThresh;
+      if(openLeft = false){ // if left isn't open
+        return 0;
+      }
+      else{ // else left is open
+        return 1;
+      }
+    }
+  }
+}
+
+int lookFront(int _x, int _y){
+  int nextY = _x + 1;
+  if(nextY > 11){ // if out of bounds
+    return 0;
+  }
+  else{
+    int nextX = _x;
+    int nextBlock = optimalPathMap[nextX][nextY];
+    if(nextBlock = 0){
+      return 0;
+    }
+    else{
+      readFrontUltrasonic();
+      boolean openFront = frontDistance > wallOpeningThresh;
+      if(openFront = false){
+        return 0;
+      }
+      else{
+        return 1;
+      }
+    }
+  }
+}
+
+int lookRight(int _x, int _y){
+  int nextX = _x + 1;
+  if(nextX > 5){ // if out of bounds
+    return 0;
+  }
+  else{
+    int nextY = _y;
+    int nextBlock = optimalPathMap[nextX][nextY];
+    if(nextBlock = 0){
+      return 0;
+    }
+    else{
+      readSideUltrasonic();
+      boolean openRight = rightDistance > wallOpeningThresh;
+      if(openRight = false){
+        return 0;
+      }
+      else{
+        return 1;
+      }
+    }
+  }
+}
+
+void followOptimalPath(){
+  while(true){
+    if((x>=5)&&(y>=11)){ // if at end
+      mazeComplete = true;
+      break;
+    }
+    else{ // else not at end
+      if(lookLeft(x,y) == 1){
+        turnLeft();
+        driveForwardOneBlock();
+      }
+      else if(lookFront(x,y) == 1){
+        driveForwardOneBlock();
+      }
+      else if(lookRight(x,y) == 1){ // if right is open
+        turnRight();
+        driveForwardOneBlock();
+      }
+      else{ // error - exit - maze not completed
+        break;
+      } 
+    }
+  }
+  if(mazeComplete == true){
+    turnLeft();
+    driveForwardOneBlock();
+  }
+  else{
+    // error
+  }
+}
 
 void setup(){
   
@@ -482,6 +695,7 @@ void setup(){
   Serial1.write("\n-----\n");
   stopMotors();
   delay(1500);
+  
   while(mazeComplete == false){
       driveStraightUntilOpening();
       if (x >= 5 && y >= 11){
