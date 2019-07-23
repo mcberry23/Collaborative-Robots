@@ -57,54 +57,8 @@ boolean mazeComplete = false;
 uint8_t stateMap[6][12];
 int16_t rHeading;
 uint8_t blocksTravelled;
-uint8_t x;
-uint8_t y;
-
-void setup(){
-  
-  // starting conditions
-  rHeading = 90;
-  x = 0;
-  y = 0;
-  blocksTravelled = 0;
-  stateMap[x][y]++;
-  
-  Serial1.begin(9600);
-  Serial1.write("\n\n--------Solving Maze--------\n ");
-  Serial1.print(rHeading);
-  Serial1.write("\n-----\n");
-  stopMotors();
-  pinMode(leftTrigPin,OUTPUT);
-  pinMode(leftEchoPin,INPUT);
-  
-  pinMode(frontTrigPin,OUTPUT);
-  pinMode(frontEchoPin,INPUT);
-  
-  pinMode(rightTrigPin,OUTPUT);
-  pinMode(rightEchoPin,INPUT);
-  delay(1500);
-  while(mazeComplete == false){
-      for(int temp = 0;temp<80;temp++){
-        snprintf_P(report, sizeof(report),
-          PSTR("Iteration: %3d\n"),
-          temp);  
-        Serial1.write(report);
-        driveStraightUntilOpening();
-        delay(pauseDelay);
-        if (isLeftWallFollowing){
-          makeDecisionLeft();  
-        } 
-        else  {
-          makeDecisionRight(); 
-        }  
-      }   
-      mazeComplete = true;
-  }
-}
-
-void loop(){
-
-}
+uint8_t x = 0;
+uint8_t y = 0;
 
 void makeDecisionRight(){
   Serial1.write("making decision...\n");
@@ -113,11 +67,7 @@ void makeDecisionRight(){
   boolean openRight = rightDistance > wallOpeningThresh;
   boolean openLeft = leftDistance > wallOpeningThresh;
   boolean openForward = frontDistance > wallOpeningThresh;
-  if ((openRight && openLeft) && openForward){
-    mazeComplete = true;
-    Serial1.write("maze completed\n");
-  }
-  else if (openRight){
+  if (openRight){
     turnRight();
     if (!openLeft){
       motors.setSpeeds(-turnSpeed, -turnSpeed);
@@ -141,8 +91,9 @@ void makeDecisionRight(){
   }
   else{
     turnAround();
+    delay(pauseDelay);
     motors.setSpeeds(-turnSpeed, -turnSpeed);
-    delay(500);
+    delay(550);
     stopMotors();
   }
   delay(pauseDelay);
@@ -155,11 +106,7 @@ void makeDecisionLeft(){
   boolean openRight = rightDistance > wallOpeningThresh;
   boolean openLeft = leftDistance > wallOpeningThresh;
   boolean openForward = frontDistance > wallOpeningThresh;
-  if ((openRight && openLeft) && openForward){
-    mazeComplete = true;
-    Serial1.write("maze completed\n");
-  }
-  else if (openLeft){    
+  if (openLeft){    
     turnLeft();
     if (!openRight){
       motors.setSpeeds(-turnSpeed, -turnSpeed);
@@ -183,8 +130,9 @@ void makeDecisionLeft(){
   }
   else{
     turnAround();
+    delay(pauseDelay);
     motors.setSpeeds(-turnSpeed, -turnSpeed);
-    delay(500);
+    delay(550);
     stopMotors();
   }
   delay(pauseDelay);
@@ -370,6 +318,7 @@ void driveTowardsWall(){
 }
 
 void driveInches(double inches){
+  Serial1.write("Driving inches\n ");
   int16_t leftCal = encoders.getCountsLeft();
   int16_t rightCal = encoders.getCountsRight();
   motors.setSpeeds(initialSpeed, initialSpeed);  
@@ -514,4 +463,64 @@ void printMap(){
     Serial1.println();
   }
   Serial1.println("----END----");
+}
+
+
+void setup(){
+  
+  // starting conditions
+  rHeading = 90;
+  x = 0;
+  y = 0;
+  blocksTravelled = 0;
+  stateMap[x][y]++;
+  
+  Serial1.begin(9600);
+  Serial1.write("\n\n--------Solving Maze--------\n ");
+  Serial1.print(rHeading);
+  Serial1.write("\n-----\n");
+  stopMotors();
+  pinMode(leftTrigPin,OUTPUT);
+  pinMode(leftEchoPin,INPUT);
+  
+  pinMode(frontTrigPin,OUTPUT);
+  pinMode(frontEchoPin,INPUT);
+  
+  pinMode(rightTrigPin,OUTPUT);
+  pinMode(rightEchoPin,INPUT);
+  delay(1500);
+  while(mazeComplete == false){
+      driveStraightUntilOpening();
+      if (x >= 5 && y >= 11){
+        break;
+      }
+      delay(pauseDelay);
+      if (isLeftWallFollowing){
+        makeDecisionLeft();  
+      } 
+      else  {
+        makeDecisionRight(); 
+      }  
+      if (x >= 5 && y >= 11){
+        mazeComplete = true;
+      }
+  }
+  Serial1.write("Maze Completed\n ");
+  delay(pauseDelay);
+  turnLeft();
+  delay(pauseDelay);
+  driveInches(driveOneBlockDistance);
+  delay(pauseDelay);
+  turnLeft();
+  delay(pauseDelay);
+  driveInches(driveOneBlockDistance);
+  if (isLeftWallFollowing)
+  {
+    delay(pauseDelay);
+    driveInches(driveOneBlockDistance);
+  }
+}
+
+void loop(){
+
 }
