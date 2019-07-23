@@ -15,16 +15,16 @@ const int rightEchoPin = 4;
 
 // ---- Performance Constants ----
 const int samplingDelay = 1; // in ms
-const int pauseDelay = 100;
+const int pauseDelay = 50;
 const long pulseTimeout = 10000; // in us
-const double kp = 8;
+const double kp = 7;
 const double ki = 0;
 const double kd = 4;
 const int maxError = 7; // cm
 const double rWheel = 19/25.4; // wheel radius in mm
 const int ticksPerRev = 610;
-const int initialSpeed = 190;
-const int turnSpeed = 175;
+const int initialSpeed = 185;
+const int turnSpeed = 170;
 const char wallOpeningThresh = 14;
 const int samplingDelayE = 10; // in ms
 const double kpe = 0.8;  // proportional gain for encoders
@@ -33,7 +33,9 @@ const int turn90 = 385;// total distance to travel in counts
 const int oneBlockAwayThresh = 27; // cm
 const int approachingWallCutoff = 5; // cm
 const int driveOneBlockDistance = 8; // inches
-const int centeringAdjustmentDistance = 2; // inches
+const int centeringAdjustmentDistance = 1; // inches
+const int isLeftWallFollowing = 1;
+const int postPIDAdjustment = 60;
 
 // ---- Variables ----
 long leftDuration;
@@ -82,14 +84,19 @@ void setup(){
   pinMode(rightEchoPin,INPUT);
   delay(1500);
   while(mazeComplete == false){
-      for(int temp = 0;temp<70;temp++){
+      for(int temp = 0;temp<80;temp++){
         snprintf_P(report, sizeof(report),
           PSTR("Iteration: %3d\n"),
           temp);  
         Serial1.write(report);
         driveStraightUntilOpening();
         delay(pauseDelay);
-        makeDecision();   
+        if (isLeftWallFollowing){
+          makeDecisionLeft();  
+        } 
+        else  {
+          makeDecisionRight(); 
+        }  
       }   
       mazeComplete = true;
   }
@@ -99,7 +106,7 @@ void loop(){
 
 }
 
-void makeDecision(){
+void makeDecisionRight(){
   Serial1.write("making decision...\n");
   readSideUltrasonic();
   readFrontUltrasonic();
@@ -135,7 +142,49 @@ void makeDecision(){
   else{
     turnAround();
     motors.setSpeeds(-turnSpeed, -turnSpeed);
-    delay(400);
+    delay(500);
+    stopMotors();
+  }
+  delay(pauseDelay);
+}
+
+void makeDecisionLeft(){
+  Serial1.write("making decision...\n");
+  readSideUltrasonic();
+  readFrontUltrasonic();
+  boolean openRight = rightDistance > wallOpeningThresh;
+  boolean openLeft = leftDistance > wallOpeningThresh;
+  boolean openForward = frontDistance > wallOpeningThresh;
+  if ((openRight && openLeft) && openForward){
+    mazeComplete = true;
+    Serial1.write("maze completed\n");
+  }
+  else if (openLeft){    
+    turnLeft();
+    if (!openRight){
+      motors.setSpeeds(-turnSpeed, -turnSpeed);
+      delay(200);
+    }
+    delay(pauseDelay);
+    driveForwardOneBlock();
+  }
+  else if (openForward){
+    driveForwardOneBlock();
+  }
+  else if (openRight){
+    turnRight();
+    if (!openLeft){
+      motors.setSpeeds(-turnSpeed, -turnSpeed);
+      delay(200);
+    }
+    stopMotors();
+    delay(pauseDelay);
+    driveForwardOneBlock();
+  }
+  else{
+    turnAround();
+    motors.setSpeeds(-turnSpeed, -turnSpeed);
+    delay(500);
     stopMotors();
   }
   delay(pauseDelay);
@@ -261,7 +310,7 @@ void driveStraightUntilOpening(){
     }
 //    stopMotors();
     motors.setSpeeds(speedRight, speedLeft);// fix error from last iteration
-    delay(40);  
+    delay(postPIDAdjustment);  
     clearPID();
     driveInches(centeringAdjustmentDistance);
   }
@@ -272,7 +321,7 @@ void driveStraightUntilOpening(){
   if(avgCountTemp > 905){
     blocksTravelled = (int)(avgCountTemp/905);
   }
-  else if((avgCountTemp > 700)&&(avgCountTemp < 905)){
+  else if((avgCountTemp > 650)&&(avgCountTemp < 905)){
     blocksTravelled = 1;
   }
   Serial1.write("-----\n");
@@ -401,9 +450,13 @@ void readFrontUltrasonic(){
 
     // Calculate distances
     frontDistance = frontDuration*0.034/2;
+    snprintf_P(report, sizeof(report),
+          PSTR("Distances: F%3d\n"),
+          int(frontDistance));  
+    Serial1.write(report);
     if (frontDistance == 0){
       Serial1.write("!!!!!!!!  Distance Error !!!!!!!!!!!!\n");
-    }    
+    }     
   }
 }
 
