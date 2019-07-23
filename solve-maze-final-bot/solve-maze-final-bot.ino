@@ -31,7 +31,7 @@ const int oneBlockAwayThresh = 27; // cm
 const int approachingWallCutoff = 5; // cm
 const int driveOneBlockDistance = 8; // inches
 const int centeringAdjustmentDistance = 1; // inches
-const int isLeftWallFollowing = 1;
+const int isLeftWallFollowing = 0;
 const int postPIDAdjustment = 60;
 
 // ---- Variables ----
@@ -350,64 +350,121 @@ void clearPID(){
 void readSideUltrasonic(){
   leftDistance = 0;
   rightDistance = 0;
-  while(leftDistance == 0 || rightDistance == 0){
+  leftDuration = 0;
+  rightDuration = 0;
+//  while((leftDistance == 0 || leftDistance == 1)  || (rightDistance == 0 || rightDistance == 1)){
     // Read left sensor
+  delay(1); 
   pinMode(leftSigPin, OUTPUT);
   digitalWrite(leftSigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(leftSigPin,HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(5);
   digitalWrite(leftSigPin,LOW);
   pinMode(leftSigPin, INPUT);
-  leftDuration = pulseIn(leftSigPin,HIGH);
-    
+  leftDuration += pulseIn(leftSigPin,HIGH);
+  delay(1);
+  pinMode(leftSigPin, OUTPUT);
+  digitalWrite(leftSigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(leftSigPin,HIGH);
+  delayMicroseconds(5);
+  digitalWrite(leftSigPin,LOW);
+  pinMode(leftSigPin, INPUT);
+  leftDuration += pulseIn(leftSigPin,HIGH);
+  delay(1);
+  pinMode(leftSigPin, OUTPUT);
+  digitalWrite(leftSigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(leftSigPin,HIGH);
+  delayMicroseconds(5);
+  digitalWrite(leftSigPin,LOW);
+  pinMode(leftSigPin, INPUT);
+  leftDuration += pulseIn(leftSigPin,HIGH);
     
   // Read right sensor
+  delay(1);
   pinMode(rightSigPin, OUTPUT);
   digitalWrite(rightSigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(rightSigPin,HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(5);
   digitalWrite(rightSigPin,LOW);
   pinMode(rightSigPin, INPUT);
-  rightDuration = pulseIn(rightSigPin,HIGH);
-    
+  rightDuration += pulseIn(rightSigPin,HIGH);
+  delay(1);
+  pinMode(rightSigPin, OUTPUT);
+  digitalWrite(rightSigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(rightSigPin,HIGH);
+  delayMicroseconds(5);
+  digitalWrite(rightSigPin,LOW);
+  pinMode(rightSigPin, INPUT);
+  rightDuration += pulseIn(rightSigPin,HIGH);
+  delay(1);
+  pinMode(rightSigPin, OUTPUT);
+  digitalWrite(rightSigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(rightSigPin,HIGH);
+  delayMicroseconds(5);
+  digitalWrite(rightSigPin,LOW);
+  pinMode(rightSigPin, INPUT);
+  rightDuration += pulseIn(rightSigPin,HIGH);
+  delay(1);  
+  
     // Calculate distances
-    leftDistance = leftDuration*0.034/2;
-    rightDistance = rightDuration*0.034/2; 
+    leftDistance = (leftDuration/3.0)*0.034/2;
+    rightDistance = (rightDuration/3.0)*0.034/2; 
     snprintf_P(report, sizeof(report),
           PSTR("Distances: L%3d R%3d\n"),
           int(leftDistance),int(rightDistance));  
     Serial1.write(report);
-    if (leftDistance == 0 || rightDistance == 0){
-      Serial1.write("!!!!!!!!  Distance Error !!!!!!!!!!!!\n");
-    }    
-  }
+//    if (leftDistance == 0 || rightDistance == 0){
+//      Serial1.write("!!!!!!!!  Distance Error !!!!!!!!!!!!\n");
+//    }    
+//  }
 }
 
 void readFrontUltrasonic(){
   frontDistance = 0;
-  while(frontDistance == 0){
+  frontDuration = 0;
+//  while(frontDistance == 0){
       // Read front sensor
-  pinMode(frontSigPin, OUTPUT);
-  digitalWrite(frontSigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(frontSigPin,HIGH);
-  delayMicroseconds(10);
-  digitalWrite(frontSigPin,LOW);
-  pinMode(frontSigPin, INPUT);
-  frontDuration = pulseIn(frontSigPin,HIGH);
-
+    delay(1); 
+    pinMode(frontSigPin, OUTPUT);
+    digitalWrite(frontSigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(frontSigPin,HIGH);
+    delayMicroseconds(5);
+    digitalWrite(frontSigPin,LOW);
+    pinMode(frontSigPin, INPUT);
+    frontDuration += pulseIn(frontSigPin,HIGH);
+    delay(1);
+    pinMode(frontSigPin, OUTPUT);
+    digitalWrite(frontSigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(frontSigPin,HIGH);
+    delayMicroseconds(5);
+    digitalWrite(frontSigPin,LOW);
+    pinMode(frontSigPin, INPUT);
+    frontDuration += pulseIn(frontSigPin,HIGH);
+    delay(1);
+    pinMode(frontSigPin, OUTPUT);
+    digitalWrite(frontSigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(frontSigPin,HIGH);
+    delayMicroseconds(5);
+    digitalWrite(frontSigPin,LOW);
+    pinMode(frontSigPin, INPUT);
+    frontDuration += pulseIn(frontSigPin,HIGH);
+    delay(1);  
     // Calculate distances
-    frontDistance = frontDuration*0.034/2;
+    frontDistance = (frontDuration/3.0)*0.034/2;
     snprintf_P(report, sizeof(report),
           PSTR("Distances: F%3d\n"),
           int(frontDistance));  
-    Serial1.write(report);
-    if (frontDistance == 0){
-      Serial1.write("!!!!!!!!  Distance Error !!!!!!!!!!!!\n");
-    }     
-  }
+    Serial1.write(report);  
+//  }
 }
 
 void stopMotors(){

@@ -24,30 +24,33 @@ void loop() {
   digitalWrite(leftSigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(leftSigPin,HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(5);
   digitalWrite(leftSigPin,LOW);
   pinMode(leftSigPin, INPUT);
   leftDuration = pulseIn(leftSigPin,HIGH);
-
+  delay(1);
+  
   // Read front sensor
   pinMode(frontSigPin, OUTPUT);
   digitalWrite(frontSigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(frontSigPin,HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(5);
   digitalWrite(frontSigPin,LOW);
   pinMode(frontSigPin, INPUT);
   frontDuration = pulseIn(frontSigPin,HIGH);
-
+  delay(1);
+  
   // Read right sensor
   pinMode(rightSigPin, OUTPUT);
   digitalWrite(rightSigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(rightSigPin,HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(5);
   digitalWrite(rightSigPin,LOW);
   pinMode(rightSigPin, INPUT);
   rightDuration = pulseIn(rightSigPin,HIGH);
+  delay(1);
   
   // Calculate distances
   leftDistance = leftDuration*0.034/2;
