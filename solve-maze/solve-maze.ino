@@ -52,6 +52,7 @@ char report[80];
 int speedLeft = initialSpeed;
 int speedRight = initialSpeed;
 boolean mazeComplete = false;
+char robot = 'A';
 
 // ---- Map Parameters ----
 uint8_t stateMap[6][12];
@@ -465,6 +466,29 @@ void printMap(){
   Serial1.println("----END----");
 }
 
+void txMap(char toRobot, char fromRobot, char dataType){
+  char throwAway;
+  while(true){
+    int check = Serial1.available();
+    if(check == 0){
+      Serial1.print("T ");
+      Serial1.print(toRobot);
+      Serial1.print(" F ");
+      Serial1.print(fromRobot);
+      Serial1.print(" D ");
+      Serial1.print(dataType);
+      Serial1.print(" ");
+      for(int i=0;i<12;i++){
+        for(int j=0;j<6;j++){
+          Serial1.print(stateMap[j][i]);
+          Serial1.print(" ");
+        }
+      }
+      break;
+    }
+    throwAway = Serial1.read();
+  }
+}
 
 void setup(){
   
@@ -489,7 +513,8 @@ void setup(){
   pinMode(rightTrigPin,OUTPUT);
   pinMode(rightEchoPin,INPUT);
   delay(1500);
-  while(mazeComplete == false){
+  
+    while(mazeComplete == false){
       driveStraightUntilOpening();
       if (x >= 5 && y >= 11){
         break;
@@ -504,21 +529,21 @@ void setup(){
       if (x >= 5 && y >= 11){
         mazeComplete = true;
       }
-  }
-  Serial1.write("Maze Completed\n ");
-  delay(pauseDelay);
-  turnLeft();
-  delay(pauseDelay);
-  driveInches(driveOneBlockDistance);
-  delay(pauseDelay);
-  turnLeft();
-  delay(pauseDelay);
-  driveInches(driveOneBlockDistance);
-  if (isLeftWallFollowing)
-  {
+    }
+    Serial1.write("Maze Completed\n ");
+    delay(pauseDelay);
+    turnLeft();
     delay(pauseDelay);
     driveInches(driveOneBlockDistance);
-  }
+    delay(pauseDelay);
+    turnLeft();
+    delay(pauseDelay);
+    driveInches(driveOneBlockDistance);
+    if (isLeftWallFollowing){
+      delay(pauseDelay);
+      driveInches(driveOneBlockDistance);
+    }
+    txMap('C',robot,'M');
 }
 
 void loop(){
